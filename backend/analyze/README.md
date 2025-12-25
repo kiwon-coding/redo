@@ -7,15 +7,16 @@
 ```
 analyze/
 ├── __init__.py              # 모듈 초기화
-├── models.py                # 데이터 모델 (PipelineContext, PipelineResult)
+├── models.py                # 데이터 모델 (PipelineContext, PipelineResult, AnalyzeResult)
 ├── base.py                  # 추상 클래스 (PipelineStep, Pipeline)
 ├── pipeline.py              # 메인 Pipeline 구현
 └── steps/                   # 각 단계별 구현
     ├── __init__.py
     ├── preprocess.py        # 전처리 단계
-    ├── detect_answer.py     # 답안 감지 단계
-    ├── detect_work.py       # 작업 영역 감지 단계
-    └── postprocess.py      # 후처리 단계
+    ├── separate_print_hand.py  # 인쇄물 vs 손글씨 분리 (핵심)
+    ├── clean_problem.py     # 인쇄물만 복원
+    ├── extract_answer.py    # 필기 중 '답'만 OCR
+    └── postprocess.py       # 후처리 단계
 ```
 
 ## 각 단계의 역할
@@ -33,46 +34,70 @@ analyze/
 
 **현재 상태**: 더미 구현 (원본 경로 그대로 넘김)
 
-### 2. DetectAnswer (답안 감지)
-**목적**: 정답이 써 있는 위치를 찾는다
+### 2. SeparatePrintHand (인쇄물 vs 손글씨 분리) ⭐ 핵심
+**목적**: 인쇄된 텍스트/도형과 손글씨/색연필을 분리한다
 
-아이의 '최종 답'이 어디에 쓰였는지 찾는 단계
+이 단계가 전체 프로젝트의 기술적 난이도를 결정한다.
 
 **하는 일**:
-- 숫자/기호가 모여 있는 영역 탐지
-- 문제 번호 옆의 답 영역 찾기
-- 체크 표시(○, ✕) 위치 파악
+- 색상 분석 (인쇄물은 보통 검정/회색, 손글씨는 다양한 색)
+- 질감 분석 (인쇄물은 균일, 손글씨는 불규칙)
+- 두께 분석 (인쇄물은 일정, 손글씨는 변화)
 
-**나중에 추가할 것**:
-- OCR
-- 숫자 인식
-- 체크 마크 분류
+**출력**:
+- `print_layer`: 인쇄물 레이어
+- `hand_layer`: 손글씨 레이어
 
 **현재 상태**: 더미 구현
 
-### 3. DetectWork (작업 영역 감지)
-**목적**: 풀이 과정이 있는 영역을 찾는다
-
-지워야 할 '풀이 흔적'을 찾는 단계
+### 3. CleanProblem (문제 이미지 정리)
+**목적**: 인쇄물만 남긴 깨끗한 문제 이미지를 생성한다
 
 **하는 일**:
-- 연필 필기 영역 감지
-- 계산식 / 낙서 구분
-- 답이 아닌 필기 영역 분리
+- separated_layers의 print_layer만 사용
+- 손글씨 영역을 배경색으로 채우기
+- 최종 이미지 저장 및 URL 생성
 
-**핵심 포인트**: 이게 있어야 "문제만 남기기" 가능
+**출력**:
+- `clean_problem_image_url`: 정리된 문제 이미지 URL
 
 **현재 상태**: 더미 구현
 
-### 4. Postprocess (후처리)
-**목적**: 사람과 시스템이 쓰기 좋은 결과로 정리
-
-AI 결과를 '서비스 데이터'로 바꾸는 단계
+### 4. ExtractAnswer (답안 추출)
+**목적**: 손글씨 레이어에서 정답만 추출한다
 
 **하는 일**:
-- 문제 단위로 묶기
-- 오답 여부 정리
-- 프린트용 / 해답지용 데이터 생성
+- 숫자/식 인식
+- 답 영역 감지 (문제 번호 옆)
+- OCR 수행하여 텍스트로 변환
+- 신뢰도 계산
+
+**중요**: 이미지로 저장하지 않고 텍스트 데이터로 저장합니다.
+
+**출력**:
+- `answer_text`: 추출된 답안 텍스트
+- `confidence`: 신뢰도
+
+**현재 상태**: 더미 구현
+
+### 5. Postprocess (후처리)
+**목적**: frontend가 쓰기 좋은 JSON으로 정리
+
+**하는 일**:
+- clean_problem_image_url 생성
+- answer.text, answer.confidence 정리
+- 최종 AnalyzeResult 형식으로 변환
+
+**출력**: AnalyzeResult
+```python
+{
+    "clean_problem_image_url": "...",
+    "answer": {
+        "text": "642",
+        "confidence": 0.92
+    }
+}
+```
 
 **현재 상태**: 더미 구현
 
@@ -82,13 +107,15 @@ AI 결과를 '서비스 데이터'로 바꾸는 단계
 PipelineContext
 ├── file_id, file_path (입력)
 ├── preprocessed (전처리 결과)
-├── detected_answers (답안 감지 결과)
-├── detected_work (작업 영역 감지 결과)
+├── separated_layers (인쇄물/손글씨 분리 결과)
+├── cleaned_problem (문제 이미지 정리 결과)
+├── extracted_answer (답안 추출 결과)
 └── postprocessed (최종 결과)
-    ├── problems (문제 단위 데이터)
-    ├── summary (요약 정보)
-    ├── for_print (프린트용 데이터)
-    └── for_answer_sheet (해답지용 데이터)
+    └── result: AnalyzeResult
+        ├── clean_problem_image_url
+        └── answer: AnswerResult
+            ├── text
+            └── confidence
 ```
 
 ## 사용 방법
@@ -100,20 +127,32 @@ from analyze import AnalyzePipeline
 
 pipeline = AnalyzePipeline()
 result = await pipeline.analyze(file_id="...", file_path=Path("..."))
+
+# 결과 접근
+print(result.analysis.clean_problem_image_url)
+print(result.analysis.answer.text)
+print(result.analysis.answer.confidence)
 ```
 
 ### 단계 교체
 
 ```python
 from analyze.base import Pipeline
-from analyze.steps import PreprocessStep, DetectAnswerStep
-from my_custom_steps import CustomDetectWorkStep, PostprocessStep
+from analyze.steps import (
+    PreprocessStep,
+    SeparatePrintHandStep,
+    CleanProblemStep,
+    ExtractAnswerStep,
+    PostprocessStep,
+)
+from my_custom_steps import CustomSeparatePrintHandStep
 
 # 커스텀 단계로 교체
 custom_pipeline = Pipeline([
     PreprocessStep(),
-    DetectAnswerStep(),
-    CustomDetectWorkStep(),  # 커스텀 작업 영역 감지
+    CustomSeparatePrintHandStep(),  # 커스텀 분리 로직
+    CleanProblemStep(),
+    ExtractAnswerStep(),
     PostprocessStep(),
 ])
 ```
@@ -142,10 +181,10 @@ class MyCustomStep(PipelineStep):
    ```python
    import asyncio
    
-   # DetectAnswer와 DetectWork를 병렬로 실행
-   answer_task = detect_answer_step.execute(context)
-   work_task = detect_work_step.execute(context)
-   answer_context, work_context = await asyncio.gather(answer_task, work_task)
+   # CleanProblem과 ExtractAnswer를 병렬로 실행 가능
+   clean_task = clean_problem_step.execute(context)
+   extract_task = extract_answer_step.execute(context)
+   clean_context, extract_context = await asyncio.gather(clean_task, extract_task)
    ```
 
 2. **Pipeline 수정**: `base.py`의 `run()` 메서드를 수정하여 병렬 실행 지원
@@ -164,7 +203,7 @@ class MyCustomStep(PipelineStep):
 
 각 단계에 실제 AI 모델을 연결:
 - **preprocess.py**: OpenCV, PIL 등을 사용한 이미지 전처리
-- **detect_answer.py**: Tesseract OCR, EasyOCR, 숫자 인식 모델
-- **detect_work.py**: YOLO, Segmentation 모델 등
-- **postprocess.py**: 정답 비교 로직, 데이터 포맷팅
-
+- **separate_print_hand.py**: ⭐ 핵심 - 색상/질감/두께 분석, ML 모델 (YOLO, Segmentation 등)
+- **clean_problem.py**: 이미지 합성, 손글씨 영역 제거
+- **extract_answer.py**: Tesseract OCR, EasyOCR, 숫자 인식 모델
+- **postprocess.py**: 데이터 포맷팅, 검증

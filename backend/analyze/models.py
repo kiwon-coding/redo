@@ -16,17 +16,32 @@ class PipelineContext(BaseModel):
 
     # 각 단계의 결과를 저장
     preprocessed: Optional[Dict[str, Any]] = None
-    detected_answers: Optional[Dict[str, Any]] = None
-    detected_work: Optional[Dict[str, Any]] = None
+    separated_layers: Optional[Dict[str, Any]] = None  # separate_print_hand 결과
+    cleaned_problem: Optional[Dict[str, Any]] = None  # clean_problem 결과
+    extracted_answer: Optional[Dict[str, Any]] = None  # extract_answer 결과
     postprocessed: Optional[Dict[str, Any]] = None
 
     # 메타데이터
     metadata: Dict[str, Any] = {}
 
 
+class AnswerResult(BaseModel):
+    """답안 추출 결과."""
+
+    text: str
+    confidence: float
+
+
+class AnalyzeResult(BaseModel):
+    """Analyze Pipeline 최종 결과 스키마."""
+
+    clean_problem_image_url: str
+    answer: AnswerResult
+
+
 class PipelineResult(BaseModel):
     """Pipeline 최종 결과."""
 
     file_id: str
-    analysis: Dict[str, Any]
+    analysis: AnalyzeResult
     context: Optional[PipelineContext] = None

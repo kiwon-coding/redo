@@ -7,7 +7,6 @@
 - 해상도 정규화
 """
 
-from pathlib import Path
 from analyze.base import PipelineStep
 from analyze.models import PipelineContext
 
@@ -66,4 +65,3 @@ class PreprocessStep(PipelineStep):
     def get_name(self) -> str:
         """단계 이름 반환."""
         return "preprocess"
-

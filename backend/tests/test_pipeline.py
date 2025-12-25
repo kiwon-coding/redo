@@ -36,8 +36,10 @@ class TestAnalyzePipeline:
         # 결과 검증
         assert result.file_id == file_id
         assert result.analysis is not None
-        assert "problems_detected" in result.analysis
-        assert "note" in result.analysis
+        assert hasattr(result.analysis, "clean_problem_image_url")
+        assert hasattr(result.analysis, "answer")
+        assert hasattr(result.analysis.answer, "text")
+        assert hasattr(result.analysis.answer, "confidence")
 
         # 컨텍스트 검증
         assert result.context is not None
@@ -46,8 +48,9 @@ class TestAnalyzePipeline:
 
         # 각 단계 결과 검증
         assert result.context.preprocessed is not None
-        assert result.context.detected_answers is not None
-        assert result.context.detected_work is not None
+        assert result.context.separated_layers is not None
+        assert result.context.cleaned_problem is not None
+        assert result.context.extracted_answer is not None
         assert result.context.postprocessed is not None
 
     @pytest.mark.asyncio
@@ -62,11 +65,14 @@ class TestAnalyzePipeline:
         assert context.preprocessed is not None
         assert context.preprocessed["status"] == "completed"
 
-        assert context.detected_answers is not None
-        assert context.detected_answers["status"] == "completed"
+        assert context.separated_layers is not None
+        assert context.separated_layers["status"] == "completed"
 
-        assert context.detected_work is not None
-        assert context.detected_work["status"] == "completed"
+        assert context.cleaned_problem is not None
+        assert context.cleaned_problem["status"] == "completed"
+
+        assert context.extracted_answer is not None
+        assert context.extracted_answer["status"] == "completed"
 
         assert context.postprocessed is not None
         assert context.postprocessed["status"] == "completed"
@@ -107,14 +113,17 @@ class TestAnalyzePipeline:
         assert hasattr(result, "analysis")
         assert hasattr(result, "context")
 
-        # analysis는 for_print 데이터를 포함해야 함
-        assert isinstance(result.analysis, dict)
-        assert "problems_detected" in result.analysis
+        # analysis는 AnalyzeResult 객체여야 함
+        assert hasattr(result.analysis, "clean_problem_image_url")
+        assert hasattr(result.analysis, "answer")
+        assert hasattr(result.analysis.answer, "text")
+        assert hasattr(result.analysis.answer, "confidence")
 
         # context는 모든 단계 결과를 포함해야 함
         assert result.context.preprocessed is not None
-        assert result.context.detected_answers is not None
-        assert result.context.detected_work is not None
+        assert result.context.separated_layers is not None
+        assert result.context.cleaned_problem is not None
+        assert result.context.extracted_answer is not None
         assert result.context.postprocessed is not None
 
     @pytest.mark.asyncio

@@ -50,8 +50,10 @@ def test_analyze_with_file_id(tmp_path, monkeypatch):
     assert "analysis" in data
     assert "file_id" in data
     assert data["file_id"] == file_id
-    assert "problems_detected" in data["analysis"]
-    assert "note" in data["analysis"]
+    assert "clean_problem_image_url" in data["analysis"]
+    assert "answer" in data["analysis"]
+    assert "text" in data["analysis"]["answer"]
+    assert "confidence" in data["analysis"]["answer"]
 
 
 def test_analyze_with_invalid_file_id(tmp_path, monkeypatch):

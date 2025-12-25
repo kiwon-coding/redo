@@ -65,10 +65,11 @@ class TestPipelineIntegration:
 
         # 4. 분석 결과 검증
         analysis = analyze_data["analysis"]
-        assert "problems_detected" in analysis
-        assert "note" in analysis
-        assert isinstance(analysis["problems_detected"], int)
-        assert analysis["problems_detected"] >= 0
+        assert "clean_problem_image_url" in analysis
+        assert "answer" in analysis
+        assert "text" in analysis["answer"]
+        assert "confidence" in analysis["answer"]
+        assert isinstance(analysis["answer"]["confidence"], (int, float))
 
     def test_analyze_response_structure(self, tmp_path, monkeypatch):
         """분석 응답의 구조가 올바른지 테스트."""
@@ -102,8 +103,11 @@ class TestPipelineIntegration:
 
         # analysis 필드 구조 확인
         assert isinstance(data["analysis"], dict)
-        assert "problems_detected" in data["analysis"]
-        assert "note" in data["analysis"]
+        assert "clean_problem_image_url" in data["analysis"]
+        assert "answer" in data["analysis"]
+        assert isinstance(data["analysis"]["answer"], dict)
+        assert "text" in data["analysis"]["answer"]
+        assert "confidence" in data["analysis"]["answer"]
 
     def test_multiple_analyses_same_file(self, tmp_path, monkeypatch):
         """같은 파일에 대해 여러 번 분석 요청 테스트."""

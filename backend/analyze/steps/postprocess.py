@@ -1,13 +1,13 @@
-"""후처리 단계 - 사람과 시스템이 쓰기 좋은 결과로 정리.
+"""후처리 단계 - frontend가 쓰기 좋은 JSON으로 정리.
 
 AI 결과를 '서비스 데이터'로 바꾸는 단계.
-- 문제 단위로 묶기
-- 오답 여부 정리
-- 프린트용 / 해답지용 데이터 생성
+- clean_problem_image_url 생성
+- answer.text, answer.confidence 정리
+- 최종 AnalyzeResult 형식으로 변환
 """
 
 from analyze.base import PipelineStep
-from analyze.models import PipelineContext
+from analyze.models import PipelineContext, AnalyzeResult, AnswerResult
 
 
 class PostprocessStep(PipelineStep):
@@ -17,8 +17,7 @@ class PostprocessStep(PipelineStep):
         """
         모든 단계의 결과를 종합하여 최종 결과 생성.
 
-        문제 단위로 묶고, 오답 여부를 정리하며,
-        프린트용/해답지용 데이터를 생성합니다.
+        frontend가 사용하기 좋은 형식으로 정리합니다.
 
         Args:
             context: Pipeline 컨텍스트
@@ -26,75 +25,26 @@ class PostprocessStep(PipelineStep):
         Returns:
             업데이트된 Pipeline 컨텍스트
         """
-        # 답안 감지 결과 가져오기
-        detected_answers = context.detected_answers or {}
-        answer_regions = detected_answers.get("answer_regions", [])
+        # 정리된 문제 이미지 정보 가져오기
+        cleaned_problem = context.cleaned_problem or {}
+        clean_image_url = cleaned_problem.get("clean_image_url", "")
 
-        # 작업 영역 감지 결과 가져오기
-        detected_work = context.detected_work or {}
-        work_regions = detected_work.get("work_regions", [])
+        # 추출된 답안 정보 가져오기
+        extracted_answer = context.extracted_answer or {}
+        answer_text = extracted_answer.get("answer_text", "")
+        answer_confidence = extracted_answer.get("confidence", 0.0)
 
-        # 문제 단위로 묶기
-        problems = []
-        for answer_region in answer_regions:
-            problem_number = answer_region.get("problem_number")
-            answer_value = answer_region.get("detected_value")
-            answer_bbox = answer_region.get("bbox")
+        # 최종 결과 생성 (AnalyzeResult 형식)
+        result = AnalyzeResult(
+            clean_problem_image_url=clean_image_url,
+            answer=AnswerResult(
+                text=answer_text,
+                confidence=answer_confidence,
+            ),
+        )
 
-            # 해당 문제의 작업 영역 찾기
-            related_work = [
-                w
-                for w in work_regions
-                if w.get("problem_number") == problem_number
-            ]
-
-            problem_data = {
-                "problem_number": problem_number,
-                "answer": {
-                    "value": answer_value,
-                    "bbox": answer_bbox,
-                    "type": answer_region.get("answer_type"),
-                    "confidence": answer_region.get("confidence"),
-                },
-                "work_regions": [
-                    {
-                        "region_id": w.get("region_id"),
-                        "bbox": w.get("bbox"),
-                        "work_type": w.get("work_type"),
-                    }
-                    for w in related_work
-                ],
-                "is_correct": None,  # 나중에 정답과 비교하여 설정
-            }
-            problems.append(problem_data)
-
-        # 오답 여부 정리 (더미 - 나중에 정답과 비교)
-        total_problems = len(problems)
-        correct_count = 0  # 더미
-        incorrect_count = 0  # 더미
-
-        # 최종 결과 생성
         context.postprocessed = {
-            "problems": problems,
-            "summary": {
-                "total_problems": total_problems,
-                "correct_count": correct_count,
-                "incorrect_count": incorrect_count,
-                "total_work_regions": detected_work.get("total_work_regions", 0),
-            },
-            "for_print": {
-                "problems_detected": total_problems,
-                "note": "더미 데이터",
-            },
-            "for_answer_sheet": {
-                "answers": [
-                    {
-                        "problem_number": p["problem_number"],
-                        "answer": p["answer"]["value"],
-                    }
-                    for p in problems
-                ],
-            },
+            "result": result,
             "status": "completed",
         }
 
@@ -103,4 +53,3 @@ class PostprocessStep(PipelineStep):
     def get_name(self) -> str:
         """단계 이름 반환."""
         return "postprocess"
-
