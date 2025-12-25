@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uuid
 from services.file_storage import save_upload_file, get_file_path_by_id
+from analyze import AnalyzePipeline
 
 app = FastAPI()
 
@@ -14,6 +15,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Pipeline 인스턴스 생성 (싱글톤 패턴 고려 가능)
+analyze_pipeline = AnalyzePipeline()
 
 
 @app.post("/upload")
@@ -43,11 +47,19 @@ async def analyze(request: AnalyzeRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    return {
-        "message": "분석 완료",
-        "file_id": request.file_id,
-        "analysis": {
-            "problems_detected": 5,
-            "note": "더미 데이터",
-        },
-    }
+    # Pipeline 실행
+    try:
+        result = await analyze_pipeline.analyze(
+            file_id=request.file_id,
+            file_path=file_path,
+        )
+        return {
+            "message": "분석 완료",
+            "file_id": result.file_id,
+            "analysis": result.analysis,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {str(e)}",
+        ) from e
