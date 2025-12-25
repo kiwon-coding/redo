@@ -145,4 +145,3 @@ class TestAnalyzePipeline:
 
         result_jpg = await pipeline.analyze("jpg-id", jpg_file)
         assert result_jpg.context.preprocessed["file_format"] == ".jpg"
-

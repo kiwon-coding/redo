@@ -48,4 +48,3 @@ class SeparatePrintHandStep(PipelineStep):
     def get_name(self) -> str:
         """단계 이름 반환."""
         return "separate_print_hand"
-

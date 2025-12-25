@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uuid
 from PIL import Image
@@ -131,7 +132,24 @@ async def crop(request: CropRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Crop failed: {str(e)}") from e
+        detail = f"Crop failed: {str(e)}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
+
+@app.get("/files/{file_id}")
+async def get_file(file_id: str):
+    """
+    file_id로 저장된 파일을 반환합니다.
+    """
+    file_path = get_file_path_by_id(file_id)
+    if file_path is None or not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+
+    # 이미지 타입 결정
+    suffix = file_path.suffix.lower()
+    media_type = "image/jpeg" if suffix in [".jpg", ".jpeg"] else "image/png"
+
+    return FileResponse(path=file_path, media_type=media_type)
 
 
 @app.post("/analyze")
