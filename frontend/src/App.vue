@@ -37,6 +37,16 @@
         {{ isUploading ? "업로드 중..." : "업로드" }}
       </button>
     </div>
+    <!-- 분석 결과 -->
+    <div v-if="analyzeResult" class="result-container">
+      <h2>분석 결과</h2>
+      <pre>{{ analyzeResult }}</pre>
+    </div>
+
+    <!-- 에러 메시지 -->
+    <p v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </p>
   </div>
 </template>
 
@@ -57,6 +67,12 @@ const isUploading = ref<boolean>(false);
 
 // 파일 이름은 selectedFile에서 계산
 const fileName = computed(() => selectedFile.value?.name || "");
+
+// 분석 결과
+const analyzeResult = ref<any | null>(null);
+
+// 에러 메시지
+const errorMessage = ref<string>("");
 
 // 파일 선택 시 호출되는 함수
 const handleFileSelect = (event: Event) => {
@@ -86,22 +102,27 @@ const handleUpload = async () => {
   }
 
   isUploading.value = true;
+  analyzeResult.value = null;
+  errorMessage.value = "";
 
   try {
-    // TODO: 실제 업로드 로직 구현
-    // 예: API 호출하여 서버에 이미지 전송
-    console.log("업로드할 파일:", selectedFile.value.name);
+    const formData = new FormData();
+    formData.append("file", selectedFile.value);
 
-    // 임시로 1초 대기 (실제로는 API 호출)
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await fetch("http://127.0.0.1:8000/analyze", {
+      method: "POST",
+      body: formData,
+    });
 
-    alert("업로드 완료!");
+    if (!response.ok) {
+      throw new Error(`서버 오류: ${response.status}`);
+    }
 
-    // 업로드 후 초기화
-    resetSelection();
+    const data = await response.json();
+    analyzeResult.value = data;
   } catch (error) {
-    console.error("업로드 실패:", error);
-    alert("업로드에 실패했습니다.");
+    console.error(error);
+    errorMessage.value = "분석 요청에 실패했습니다.";
   } finally {
     isUploading.value = false;
   }
@@ -206,5 +227,18 @@ h1 {
   margin: 0;
   color: #666;
   font-size: 0.9rem;
+}
+
+.result-container {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f3f3f3;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.error-message {
+  color: red;
+  margin-top: 1rem;
 }
 </style>
