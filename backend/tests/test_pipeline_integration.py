@@ -95,7 +95,13 @@ class TestPipelineIntegration:
         data = response.json()
 
         # 필수 필드 확인 (실제 API 응답 구조에 맞게 수정)
-        required_fields = ["message", "file_id", "problem_image_file_id", "problem_image_url", "answer"]
+        required_fields = [
+            "message",
+            "file_id",
+            "problem_image_file_id",
+            "problem_image_url",
+            "answer",
+        ]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 

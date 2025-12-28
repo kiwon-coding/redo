@@ -1,12 +1,15 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
+from pathlib import Path
 import uuid
 from PIL import Image
 from services.file_storage import save_upload_file, get_file_path_by_id
 from analyze import AnalyzePipeline
+from analyze.models import PipelineContext
+from analyze.steps import PreprocessStep, ExtractProblemStep, ExtractAnswerStep
 
 app = FastAPI()
 
@@ -263,3 +266,170 @@ async def get_problems():
         "count": len(problems_list),
         "problems": problems_list,
     }
+
+
+# ========== Debug Endpoints ==========
+# 개발/테스트용 엔드포인트 - 각 단계를 독립적으로 테스트할 수 있음
+
+
+@app.post("/debug/extract_problem")
+async def debug_extract_problem(
+    file: UploadFile = File(None, description="이미지 파일 (직접 업로드)"),
+    image_id: str = Form(None, description="이미지 ID (이미 업로드된 파일)"),
+    remover_level: int = Form(1, description="필기 제거 레벨 (1, 2, 3)"),
+):
+    """
+    extract_problem 단계만 독립적으로 실행합니다.
+
+    Swagger UI에서 이미지 파일을 직접 업로드하거나,
+    이미 업로드된 파일의 image_id를 사용할 수 있습니다.
+
+    Args:
+        file: 이미지 파일 (직접 업로드) - file 또는 image_id 중 하나 필수
+        image_id: 이미지 ID (이미 업로드된 파일) - file 또는 image_id 중 하나 필수
+        remover_level: 필기 제거 레벨 (1, 2, 3), 기본값: 1
+
+    Returns:
+        extract_problem 결과 (문제 이미지 URL, 메타데이터)
+    """
+    # 파일 경로 결정: file 또는 image_id 중 하나 필수
+    file_path = None
+    actual_file_id = None
+
+    if file is not None:
+        # 파일을 직접 업로드한 경우
+        file_id = str(uuid.uuid4())
+        file_info = await save_upload_file(file, file_id=file_id)
+        file_path = Path(file_info["stored_path"])
+        actual_file_id = file_id
+    elif image_id:
+        # image_id를 사용한 경우
+        file_path = get_file_path_by_id(image_id)
+        if file_path is None or not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {image_id}")
+        actual_file_id = image_id
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'file' or 'image_id' must be provided",
+        )
+
+    try:
+        # PipelineContext 생성
+        context = PipelineContext(
+            file_id=actual_file_id,
+            file_path=file_path,
+        )
+
+        # 1. PreprocessStep 실행 (필수)
+        preprocess_step = PreprocessStep()
+        context = await preprocess_step.execute(context)
+
+        # 2. ExtractProblemStep 실행
+        extract_problem_step = ExtractProblemStep(remover_level=remover_level)
+        context = await extract_problem_step.execute(context)
+
+        # 결과 반환
+        if context.extracted_problem is None:
+            raise HTTPException(status_code=500, detail="extract_problem failed")
+
+        return {
+            "message": "extract_problem 완료",
+            "image_id": actual_file_id,
+            "result": {
+                "problem_file_id": context.extracted_problem.get("problem_file_id"),
+                "problem_image_url": context.extracted_problem.get("problem_image_url"),
+                "problem_image_path": context.extracted_problem.get(
+                    "problem_image_path"
+                ),
+                "handwriting_removed": context.extracted_problem.get(
+                    "handwriting_removed"
+                ),
+                "separation_method": context.extracted_problem.get("separation_method"),
+                "confidence": context.extracted_problem.get("confidence"),
+                "status": context.extracted_problem.get("status"),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"extract_problem failed: {str(e)}",
+        ) from e
+
+
+@app.post("/debug/extract_answer")
+async def debug_extract_answer(
+    file: UploadFile = File(None, description="이미지 파일 (직접 업로드)"),
+    image_id: str = Form(None, description="이미지 ID (이미 업로드된 파일)"),
+    min_confidence: float = Form(0.3, description="최소 신뢰도 (0.0 ~ 1.0)"),
+):
+    """
+    extract_answer 단계만 독립적으로 실행합니다.
+
+    Swagger UI에서 이미지 파일을 직접 업로드하거나,
+    이미 업로드된 파일의 image_id를 사용할 수 있습니다.
+
+    Args:
+        file: 이미지 파일 (직접 업로드) - file 또는 image_id 중 하나 필수
+        image_id: 이미지 ID (이미 업로드된 파일) - file 또는 image_id 중 하나 필수
+        min_confidence: 최소 신뢰도 (0.0 ~ 1.0), 기본값: 0.3
+
+    Returns:
+        extract_answer 결과 (답안 텍스트, confidence)
+    """
+    # 파일 경로 결정: file 또는 image_id 중 하나 필수
+    file_path = None
+    actual_file_id = None
+
+    if file is not None:
+        # 파일을 직접 업로드한 경우
+        file_id = str(uuid.uuid4())
+        file_info = await save_upload_file(file, file_id=file_id)
+        file_path = Path(file_info["stored_path"])
+        actual_file_id = file_id
+    elif image_id:
+        # image_id를 사용한 경우
+        file_path = get_file_path_by_id(image_id)
+        if file_path is None or not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {image_id}")
+        actual_file_id = image_id
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'file' or 'image_id' must be provided",
+        )
+
+    try:
+        # PipelineContext 생성
+        context = PipelineContext(
+            file_id=actual_file_id,
+            file_path=file_path,
+        )
+
+        # 1. PreprocessStep 실행 (필수)
+        preprocess_step = PreprocessStep()
+        context = await preprocess_step.execute(context)
+
+        # 2. ExtractAnswerStep 실행
+        extract_answer_step = ExtractAnswerStep(min_confidence=min_confidence)
+        context = await extract_answer_step.execute(context)
+
+        # 결과 반환
+        if context.extracted_answer is None:
+            raise HTTPException(status_code=500, detail="extract_answer failed")
+
+        return {
+            "message": "extract_answer 완료",
+            "image_id": actual_file_id,
+            "result": {
+                "answer_text": context.extracted_answer.get("answer_text"),
+                "confidence": context.extracted_answer.get("confidence"),
+                "ocr_method": context.extracted_answer.get("ocr_method"),
+                "status": context.extracted_answer.get("status"),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"extract_answer failed: {str(e)}",
+        ) from e

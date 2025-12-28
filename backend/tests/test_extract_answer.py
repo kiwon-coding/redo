@@ -173,9 +173,7 @@ class TestExtractAnswerStep:
         preprocessed_img = preprocess_for_ocr(img)
 
         # OCR 수행
-        answer_text, confidence = step._extract_text_with_confidence(
-            preprocessed_img
-        )
+        answer_text, confidence = step._extract_text_with_confidence(preprocessed_img)
 
         # 결과 검증
         assert isinstance(answer_text, str)
@@ -188,4 +186,3 @@ class TestExtractAnswerStep:
         step = ExtractAnswerStep(tesseract_config=custom_config)
 
         assert step.tesseract_config == custom_config
-
