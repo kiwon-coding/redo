@@ -43,9 +43,8 @@ class ExtractAnswerStep(PipelineStep):
         # 더미 답안 추출 결과
         # 실제 구현 시: 손글씨 영역에서 답 영역을 찾고 OCR 수행
         context.extracted_answer = {
-            "answer_text": "642",  # 더미 답안
-            "confidence": 0.92,  # 더미 신뢰도
-            "answer_region": None,  # 더미: bbox 정보 (답 영역 좌표)
+            "answer_text": "642",  # 더미 답안 (숫자/기호 OCR 결과)
+            "confidence": 0.93,  # 더미 신뢰도
             "ocr_method": "dummy",  # "tesseract", "paddleocr", "ml_model"
             "status": "completed",
         }

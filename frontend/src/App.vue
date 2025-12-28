@@ -23,6 +23,14 @@
       @analyze="handleAnalyze"
     />
 
+    <!-- 4단계: Analyze Result -->
+    <AnalyzeResult
+      v-if="currentStep === 'analyze' && currentCropResult"
+      :crop-file-id="currentCropResult.file_id"
+      @confirmed="handleAnalyzeConfirmed"
+      @recrop="handleRecrop"
+    />
+
     <!-- 에러 메시지 -->
     <p v-if="errorMessage" class="error-message">
       {{ errorMessage }}
@@ -38,8 +46,10 @@ import ImageUpload from "./components/ImageUpload.vue";
 import CropEditor from "./components/CropEditor.vue";
 // @ts-ignore - Vue SFC components
 import Preview from "./components/Preview.vue";
+// @ts-ignore - Vue SFC components
+import AnalyzeResult from "./components/AnalyzeResult.vue";
 
-type Step = "upload" | "crop" | "preview";
+type Step = "upload" | "crop" | "preview" | "analyze";
 
 // 현재 단계
 const currentStep = ref<Step>("upload");
@@ -86,10 +96,42 @@ const handleCropConfirmed = (response: {
 const handleAnalyze = () => {
   if (!currentCropResult.value) return;
 
-  // TODO: 분석 단계로 이동 (추후 구현)
-  console.log("Analyze crop:", currentCropResult.value);
-  // 분석 시작
-  // 예: analyze API 호출 또는 다음 단계로 이동
+  // Analyze 단계로 이동
+  currentStep.value = "analyze";
+  errorMessage.value = "";
+};
+
+// 분석 결과 확인 핸들러
+const handleAnalyzeConfirmed = (answer: string) => {
+  console.log("Problem saved with answer:", answer);
+  // 문제가 저장되었으므로 초기 상태로 리셋
+  // TODO: 문제 리스트 화면으로 이동하거나 다음 단계로 진행
+  alert(`문제가 저장되었습니다. 정답: "${answer}"`);
+
+  // 초기 상태로 리셋 (선택사항)
+  // currentStep.value = "upload";
+  // currentCropResult.value = null;
+  // originalImageId.value = null;
+  // originalImageUrl.value = null;
+};
+
+// 다시 crop 핸들러
+const handleRecrop = () => {
+  if (!currentCropResult.value) return;
+
+  // 원본 이미지 정보 복원
+  // original_image_id를 사용하여 원본 이미지 URL 재생성
+  const originalId = currentCropResult.value.original_image_id;
+
+  if (originalId) {
+    originalImageId.value = originalId;
+    // 원본 이미지 URL 재생성 (backend에서 가져오기)
+    originalImageUrl.value = `http://127.0.0.1:8000/files/${originalId}`;
+  }
+
+  // Crop 단계로 돌아가기
+  currentStep.value = "crop";
+  errorMessage.value = "";
 };
 </script>
 

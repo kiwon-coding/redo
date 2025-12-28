@@ -27,6 +27,7 @@ class PostprocessStep(PipelineStep):
         """
         # 추출된 문제 이미지 정보 가져오기
         extracted_problem = context.extracted_problem or {}
+        # problem_image_url은 /files/{file_id} 형식
         problem_image_url = extracted_problem.get("problem_image_url", "")
 
         # 추출된 답안 정보 가져오기
