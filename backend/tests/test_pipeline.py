@@ -124,19 +124,20 @@ class TestAnalyzePipeline:
     @pytest.mark.asyncio
     async def test_pipeline_different_file_formats(self, pipeline, tmp_path):
         """다양한 파일 형식 테스트."""
+        from PIL import Image
+
         # PNG 파일
         png_file = tmp_path / "test.png"
-        png_file.write_bytes(
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
-        )
+        img = Image.new("RGB", (100, 100), color="white")
+        img.save(png_file, "PNG")
 
         result_png = await pipeline.analyze("png-id", png_file)
         assert result_png.context.preprocessed["file_format"] == ".png"
 
-        # JPEG 파일 (확장자만 확인, 실제 JPEG 바이너리는 복잡)
+        # JPEG 파일
         jpg_file = tmp_path / "test.jpg"
-        jpg_file.write_bytes(b"\xff\xd8\xff\xe0")  # 간단한 JPEG 헤더
+        img = Image.new("RGB", (100, 100), color="white")
+        img.save(jpg_file, "JPEG")
 
         result_jpg = await pipeline.analyze("jpg-id", jpg_file)
         assert result_jpg.context.preprocessed["file_format"] == ".jpg"

@@ -3,6 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
+from io import BytesIO
+from PIL import Image
 from backend.main import app
 
 client = TestClient(app)
@@ -13,13 +15,11 @@ def _get_test_image_bytes():
     image_path = Path(__file__).parent.parent / "test.png"
 
     if not image_path.exists():
-        # 최소한의 유효한 PNG 헤더
-        return (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
-            b"\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
-            b"\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
+        # PIL Image를 사용해서 실제 이미지 생성
+        img = Image.new("RGB", (100, 100), color="white")
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        return buffer.getvalue()
     else:
         return image_path.read_bytes()
 
@@ -61,15 +61,13 @@ class TestPipelineIntegration:
         assert analyze_data["message"] == "분석 완료"
         assert "file_id" in analyze_data
         assert analyze_data["file_id"] == file_id
-        assert "analysis" in analyze_data
-
-        # 4. 분석 결과 검증
-        analysis = analyze_data["analysis"]
-        assert "clean_problem_image_url" in analysis
-        assert "answer" in analysis
-        assert "text" in analysis["answer"]
-        assert "confidence" in analysis["answer"]
-        assert isinstance(analysis["answer"]["confidence"], (int, float))
+        # 실제 API 응답 구조에 맞게 수정
+        assert "problem_image_file_id" in analyze_data
+        assert "problem_image_url" in analyze_data
+        assert "answer" in analyze_data
+        assert "text" in analyze_data["answer"]
+        assert "confidence" in analyze_data["answer"]
+        assert isinstance(analyze_data["answer"]["confidence"], (int, float))
 
     def test_analyze_response_structure(self, tmp_path, monkeypatch):
         """분석 응답의 구조가 올바른지 테스트."""
@@ -96,18 +94,15 @@ class TestPipelineIntegration:
         assert response.status_code == 200
         data = response.json()
 
-        # 필수 필드 확인
-        required_fields = ["message", "file_id", "analysis"]
+        # 필수 필드 확인 (실제 API 응답 구조에 맞게 수정)
+        required_fields = ["message", "file_id", "problem_image_file_id", "problem_image_url", "answer"]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
-        # analysis 필드 구조 확인
-        assert isinstance(data["analysis"], dict)
-        assert "clean_problem_image_url" in data["analysis"]
-        assert "answer" in data["analysis"]
-        assert isinstance(data["analysis"]["answer"], dict)
-        assert "text" in data["analysis"]["answer"]
-        assert "confidence" in data["analysis"]["answer"]
+        # answer 필드 구조 확인
+        assert isinstance(data["answer"], dict)
+        assert "text" in data["answer"]
+        assert "confidence" in data["answer"]
 
     def test_multiple_analyses_same_file(self, tmp_path, monkeypatch):
         """같은 파일에 대해 여러 번 분석 요청 테스트."""
@@ -134,7 +129,9 @@ class TestPipelineIntegration:
             assert response.status_code == 200
             data = response.json()
             assert data["file_id"] == file_id
-            assert "analysis" in data
+            # 실제 API 응답 구조에 맞게 수정
+            assert "problem_image_file_id" in data
+            assert "answer" in data
 
     def test_analyze_with_different_file_ids(self, tmp_path, monkeypatch):
         """다른 파일 ID로 분석 요청 테스트."""

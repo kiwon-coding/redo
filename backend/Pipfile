@@ -10,6 +10,7 @@ python-multipart = "*"
 pillow = "*"
 opencv-python = "*"
 numpy = "*"
+pytesseract = "*"
 
 [dev-packages]
 pytest = "*"

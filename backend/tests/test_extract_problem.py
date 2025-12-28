@@ -20,13 +20,9 @@ class TestRemoveHandwriting:
     def test_image_path(self, tmp_path):
         """테스트용 이미지 파일 생성."""
         image_path = tmp_path / "test.png"
-        # 최소한의 유효한 PNG 바이너리
-        image_path.write_bytes(
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
-            b"\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
-            b"\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
+        # PIL Image를 사용해서 실제 이미지 생성
+        img = Image.new("RGB", (100, 100), color="white")
+        img.save(image_path, "PNG")
         return image_path
 
     def test_remove_handwriting_with_path(self, test_image_path):
@@ -165,9 +161,7 @@ class TestExtractProblemIntegration:
         assert isinstance(result.extracted_problem["separation_method"], str)
 
         # 처리된 이미지 파일이 생성되었는지 확인
-        problem_image_path = Path(
-            result.extracted_problem["problem_image_path"]
-        )
+        problem_image_path = Path(result.extracted_problem["problem_image_path"])
         assert problem_image_path.exists()
 
         # 처리된 이미지가 원본과 다른지 확인 (실제로 처리되었는지)
@@ -176,4 +170,3 @@ class TestExtractProblemIntegration:
 
         # 크기는 같아야 함
         assert original_img.size == processed_img.size
-

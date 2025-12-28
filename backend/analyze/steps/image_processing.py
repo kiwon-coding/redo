@@ -260,3 +260,52 @@ def remove_handwriting_from_pil(
     result_image = Image.fromarray(result_array)
 
     return result_image
+
+
+# OCR 전처리 함수들
+def preprocess_for_ocr(image: Image.Image) -> Image.Image:
+    """
+    OCR을 위해 이미지를 전처리합니다.
+
+    처리 과정:
+    1. Grayscale 변환
+    2. 색상 반전 (검정 텍스트 → 흰색 배경)
+    3. 대비 증가
+    4. 이진화 (threshold)
+
+    Args:
+        image: PIL Image 객체
+
+    Returns:
+        OCR에 최적화된 PIL Image (Grayscale)
+    """
+    # PIL Image를 numpy array로 변환
+    img_array = np.array(image)
+
+    # 1. Grayscale 변환
+    if len(img_array.shape) == 3:
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img_array.copy()
+
+    # 2. 색상 반전 (검정 텍스트 → 흰색 배경으로)
+    inverted = cv2.bitwise_not(gray)
+
+    # 3. 대비 증가 (CLAHE)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(inverted)
+
+    # 4. 이진화 (Adaptive Threshold)
+    binary = cv2.adaptiveThreshold(
+        enhanced,
+        maxValue=255,
+        adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        thresholdType=cv2.THRESH_BINARY,
+        blockSize=11,
+        C=2,
+    )
+
+    # numpy array를 PIL Image로 변환
+    result_image = Image.fromarray(binary)
+
+    return result_image

@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 from pathlib import Path
+from io import BytesIO
+from PIL import Image
 from backend.main import app
 
 client = TestClient(app)
@@ -10,13 +12,11 @@ def _get_test_image_bytes():
     image_path = Path(__file__).parent.parent / "test.png"
 
     if not image_path.exists():
-        # 최소한의 유효한 PNG 헤더
-        return (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
-            b"\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
-            b"\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
+        # PIL Image를 사용해서 실제 이미지 생성
+        img = Image.new("RGB", (100, 100), color="white")
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        return buffer.getvalue()
     else:
         return image_path.read_bytes()
 
@@ -47,13 +47,14 @@ def test_analyze_with_file_id(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     data = response.json()
-    assert "analysis" in data
+    # 실제 API 응답 구조에 맞게 수정
     assert "file_id" in data
     assert data["file_id"] == file_id
-    assert "clean_problem_image_url" in data["analysis"]
-    assert "answer" in data["analysis"]
-    assert "text" in data["analysis"]["answer"]
-    assert "confidence" in data["analysis"]["answer"]
+    assert "problem_image_file_id" in data
+    assert "problem_image_url" in data
+    assert "answer" in data
+    assert "text" in data["answer"]
+    assert "confidence" in data["answer"]
 
 
 def test_analyze_with_invalid_file_id(tmp_path, monkeypatch):

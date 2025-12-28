@@ -100,8 +100,12 @@ class TestExtractProblemStep:
     @pytest.fixture
     def context_with_preprocess(self, tmp_path):
         """전처리가 완료된 컨텍스트."""
+        from PIL import Image
+
         image_path = tmp_path / "test.png"
-        image_path.write_bytes(b"fake image data")
+        # PIL Image를 사용해서 실제 이미지 생성
+        img = Image.new("RGB", (100, 100), color="white")
+        img.save(image_path, "PNG")
 
         context = PipelineContext(
             file_id="test-id",
@@ -154,14 +158,21 @@ class TestExtractAnswerStep:
     @pytest.fixture
     def context_with_extracted_problem(self, tmp_path):
         """문제 추출이 완료된 컨텍스트."""
+        from PIL import Image
+
         image_path = tmp_path / "test.png"
-        image_path.write_bytes(b"fake image data")
+        # PIL Image를 사용해서 실제 이미지 생성
+        img = Image.new("RGB", (100, 100), color="white")
+        img.save(image_path, "PNG")
 
         context = PipelineContext(
             file_id="test-id",
             file_path=image_path,
         )
-        context.preprocessed = {"status": "completed"}
+        context.preprocessed = {
+            "status": "completed",
+            "processed_path": str(image_path),
+        }
         context.extracted_problem = {
             "problem_image_path": str(image_path),
             "problem_image_url": "/uploads/test-id_problem.png",
