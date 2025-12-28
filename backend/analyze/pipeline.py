@@ -10,8 +10,7 @@ from analyze.models import (
 )
 from analyze.steps import (
     PreprocessStep,
-    SeparatePrintHandStep,
-    CleanProblemStep,
+    ExtractProblemStep,
     ExtractAnswerStep,
     PostprocessStep,
 )
@@ -22,18 +21,16 @@ class AnalyzePipeline(Pipeline):
 
     실행 순서:
     1. Preprocess: 사진을 분석 가능한 상태로 변환 (대비, 노이즈 정리)
-    2. SeparatePrintHand: 인쇄물 vs 손글씨/색연필 분리 (핵심)
-    3. CleanProblem: 인쇄물 레이어만 남겨 문제 이미지 생성
-    4. ExtractAnswer: 손글씨 중 숫자/식만 OCR
-    5. Postprocess: frontend가 쓰기 좋은 JSON으로 정리
+    2. ExtractProblem: 손글씨 제거하고 문제만 남기기 (인쇄물만 추출)
+    3. ExtractAnswer: 손글씨에서 정답만 텍스트로 추출 (OCR)
+    4. Postprocess: frontend가 쓰기 좋은 JSON으로 정리
     """
 
     def __init__(self):
         """Pipeline 초기화 - 단계들을 순서대로 설정."""
         steps = [
             PreprocessStep(),
-            SeparatePrintHandStep(),
-            CleanProblemStep(),
+            ExtractProblemStep(),
             ExtractAnswerStep(),
             PostprocessStep(),
         ]

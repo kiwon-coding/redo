@@ -3,8 +3,7 @@
 import pytest
 from analyze.models import PipelineContext
 from analyze.steps.preprocess import PreprocessStep
-from analyze.steps.separate_print_hand import SeparatePrintHandStep
-from analyze.steps.clean_problem import CleanProblemStep
+from analyze.steps.extract_problem import ExtractProblemStep
 from analyze.steps.extract_answer import ExtractAnswerStep
 from analyze.steps.postprocess import PostprocessStep
 
@@ -90,13 +89,13 @@ class TestPreprocessStep:
         assert step.get_name() == "preprocess"
 
 
-class TestSeparatePrintHandStep:
-    """SeparatePrintHandStep 테스트."""
+class TestExtractProblemStep:
+    """ExtractProblemStep 테스트."""
 
     @pytest.fixture
     def step(self):
-        """SeparatePrintHandStep 인스턴스."""
-        return SeparatePrintHandStep()
+        """ExtractProblemStep 인스턴스."""
+        return ExtractProblemStep()
 
     @pytest.fixture
     def context_with_preprocess(self, tmp_path):
@@ -115,17 +114,18 @@ class TestSeparatePrintHandStep:
         return context
 
     @pytest.mark.asyncio
-    async def test_separate_print_hand_success(self, step, context_with_preprocess):
-        """정상적인 인쇄물/손글씨 분리 테스트."""
+    async def test_extract_problem_success(self, step, context_with_preprocess):
+        """정상적인 문제 추출 테스트."""
         result = await step.execute(context_with_preprocess)
 
-        assert result.separated_layers is not None
-        assert result.separated_layers["status"] == "completed"
-        assert "print_layer_path" in result.separated_layers
-        assert "hand_layer_path" in result.separated_layers
+        assert result.extracted_problem is not None
+        assert result.extracted_problem["status"] == "completed"
+        assert "problem_image_path" in result.extracted_problem
+        assert "problem_image_url" in result.extracted_problem
+        assert result.extracted_problem["handwriting_removed"] is True
 
     @pytest.mark.asyncio
-    async def test_separate_print_hand_preserves_context(
+    async def test_extract_problem_preserves_context(
         self,
         step,
         context_with_preprocess,
@@ -140,48 +140,7 @@ class TestSeparatePrintHandStep:
 
     def test_get_name(self, step):
         """단계 이름 반환 테스트."""
-        assert step.get_name() == "separate_print_hand"
-
-
-class TestCleanProblemStep:
-    """CleanProblemStep 테스트."""
-
-    @pytest.fixture
-    def step(self):
-        """CleanProblemStep 인스턴스."""
-        return CleanProblemStep()
-
-    @pytest.fixture
-    def context_with_separation(self, tmp_path):
-        """분리가 완료된 컨텍스트."""
-        image_path = tmp_path / "test.png"
-        image_path.write_bytes(b"fake image data")
-
-        context = PipelineContext(
-            file_id="test-id",
-            file_path=image_path,
-        )
-        context.preprocessed = {"status": "completed"}
-        context.separated_layers = {
-            "print_layer_path": str(image_path),
-            "hand_layer_path": str(image_path),
-            "status": "completed",
-        }
-        return context
-
-    @pytest.mark.asyncio
-    async def test_clean_problem_success(self, step, context_with_separation):
-        """정상적인 문제 이미지 정리 테스트."""
-        result = await step.execute(context_with_separation)
-
-        assert result.cleaned_problem is not None
-        assert result.cleaned_problem["status"] == "completed"
-        assert "clean_image_path" in result.cleaned_problem
-        assert "clean_image_url" in result.cleaned_problem
-
-    def test_get_name(self, step):
-        """단계 이름 반환 테스트."""
-        assert step.get_name() == "clean_problem"
+        assert step.get_name() == "extract_problem"
 
 
 class TestExtractAnswerStep:
@@ -193,8 +152,8 @@ class TestExtractAnswerStep:
         return ExtractAnswerStep()
 
     @pytest.fixture
-    def context_with_separation(self, tmp_path):
-        """분리가 완료된 컨텍스트."""
+    def context_with_extracted_problem(self, tmp_path):
+        """문제 추출이 완료된 컨텍스트."""
         image_path = tmp_path / "test.png"
         image_path.write_bytes(b"fake image data")
 
@@ -203,17 +162,17 @@ class TestExtractAnswerStep:
             file_path=image_path,
         )
         context.preprocessed = {"status": "completed"}
-        context.separated_layers = {
-            "print_layer_path": str(image_path),
-            "hand_layer_path": str(image_path),
+        context.extracted_problem = {
+            "problem_image_path": str(image_path),
+            "problem_image_url": "/uploads/test-id_problem.png",
             "status": "completed",
         }
         return context
 
     @pytest.mark.asyncio
-    async def test_extract_answer_success(self, step, context_with_separation):
+    async def test_extract_answer_success(self, step, context_with_extracted_problem):
         """정상적인 답안 추출 테스트."""
-        result = await step.execute(context_with_separation)
+        result = await step.execute(context_with_extracted_problem)
 
         assert result.extracted_answer is not None
         assert result.extracted_answer["status"] == "completed"
@@ -244,14 +203,10 @@ class TestPostprocessStep:
             file_path=image_path,
         )
         context.preprocessed = {"status": "completed"}
-        context.separated_layers = {
-            "print_layer_path": str(image_path),
-            "hand_layer_path": str(image_path),
-            "status": "completed",
-        }
-        context.cleaned_problem = {
-            "clean_image_path": str(image_path),
-            "clean_image_url": "/uploads/test-id_clean.png",
+        context.extracted_problem = {
+            "problem_image_path": str(image_path),
+            "problem_image_url": "/uploads/test-id_problem.png",
+            "handwriting_removed": True,
             "status": "completed",
         }
         context.extracted_answer = {
@@ -288,8 +243,7 @@ class TestPostprocessStep:
             file_path=image_path,
         )
         context.preprocessed = {"status": "completed"}
-        context.separated_layers = {"status": "completed"}
-        context.cleaned_problem = {"clean_image_url": ""}
+        context.extracted_problem = {"problem_image_url": ""}
         context.extracted_answer = {"answer_text": "", "confidence": 0.0}
 
         result = await step.execute(context)

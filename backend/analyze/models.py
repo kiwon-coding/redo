@@ -16,8 +16,7 @@ class PipelineContext(BaseModel):
 
     # 각 단계의 결과를 저장
     preprocessed: Optional[Dict[str, Any]] = None
-    separated_layers: Optional[Dict[str, Any]] = None  # separate_print_hand 결과
-    cleaned_problem: Optional[Dict[str, Any]] = None  # clean_problem 결과
+    extracted_problem: Optional[Dict[str, Any]] = None  # extract_problem 결과
     extracted_answer: Optional[Dict[str, Any]] = None  # extract_answer 결과
     postprocessed: Optional[Dict[str, Any]] = None
 

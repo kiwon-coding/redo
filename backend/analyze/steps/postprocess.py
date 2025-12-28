@@ -25,9 +25,9 @@ class PostprocessStep(PipelineStep):
         Returns:
             업데이트된 Pipeline 컨텍스트
         """
-        # 정리된 문제 이미지 정보 가져오기
-        cleaned_problem = context.cleaned_problem or {}
-        clean_image_url = cleaned_problem.get("clean_image_url", "")
+        # 추출된 문제 이미지 정보 가져오기
+        extracted_problem = context.extracted_problem or {}
+        problem_image_url = extracted_problem.get("problem_image_url", "")
 
         # 추출된 답안 정보 가져오기
         extracted_answer = context.extracted_answer or {}
@@ -36,7 +36,7 @@ class PostprocessStep(PipelineStep):
 
         # 최종 결과 생성 (AnalyzeResult 형식)
         result = AnalyzeResult(
-            clean_problem_image_url=clean_image_url,
+            clean_problem_image_url=problem_image_url,
             answer=AnswerResult(
                 text=answer_text,
                 confidence=answer_confidence,

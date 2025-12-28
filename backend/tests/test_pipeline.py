@@ -48,8 +48,7 @@ class TestAnalyzePipeline:
 
         # 각 단계 결과 검증
         assert result.context.preprocessed is not None
-        assert result.context.separated_layers is not None
-        assert result.context.cleaned_problem is not None
+        assert result.context.extracted_problem is not None
         assert result.context.extracted_answer is not None
         assert result.context.postprocessed is not None
 
@@ -65,11 +64,8 @@ class TestAnalyzePipeline:
         assert context.preprocessed is not None
         assert context.preprocessed["status"] == "completed"
 
-        assert context.separated_layers is not None
-        assert context.separated_layers["status"] == "completed"
-
-        assert context.cleaned_problem is not None
-        assert context.cleaned_problem["status"] == "completed"
+        assert context.extracted_problem is not None
+        assert context.extracted_problem["status"] == "completed"
 
         assert context.extracted_answer is not None
         assert context.extracted_answer["status"] == "completed"
@@ -121,8 +117,7 @@ class TestAnalyzePipeline:
 
         # context는 모든 단계 결과를 포함해야 함
         assert result.context.preprocessed is not None
-        assert result.context.separated_layers is not None
-        assert result.context.cleaned_problem is not None
+        assert result.context.extracted_problem is not None
         assert result.context.extracted_answer is not None
         assert result.context.postprocessed is not None
 
