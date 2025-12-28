@@ -12,23 +12,58 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from PIL import Image
+from typing import Optional
 from analyze.base import PipelineStep
 from analyze.models import PipelineContext
 from services.file_storage import UPLOAD_ROOT
+from analyze.steps.image_processing import (
+    remove_handwriting_from_pil,
+    HandwritingRemover,
+    ThresholdBasedRemover,
+    MorphologyBasedRemover,
+    AIBasedRemover,
+)
 
 
 class ExtractProblemStep(PipelineStep):
     """문제 추출 단계 - 손글씨 제거하고 문제만 남기기."""
 
+    def __init__(
+        self,
+        remover: Optional[HandwritingRemover] = None,
+        remover_level: int = 1,
+    ):
+        """
+        ExtractProblemStep 초기화.
+
+        Args:
+            remover: 사용할 HandwritingRemover 인스턴스
+            remover_level: 사용할 레벨 (1: Threshold, 2: Morphology, 3: AI)
+                          remover가 None일 때만 사용됨
+        """
+        if remover is None:
+            if remover_level == 1:
+                self.remover = ThresholdBasedRemover()
+            elif remover_level == 2:
+                self.remover = MorphologyBasedRemover()
+            elif remover_level == 3:
+                self.remover = AIBasedRemover()
+            else:
+                raise ValueError(
+                    f"Invalid remover_level: {remover_level}. " "Must be 1, 2, or 3"
+                )
+        else:
+            self.remover = remover
+
     async def execute(self, context: PipelineContext) -> PipelineContext:
         """
         손글씨를 제거하고 인쇄물만 남긴 깨끗한 문제 이미지를 생성합니다.
 
-        현재는 더미 구현입니다.
-        나중에 실제 CV 모델을 사용하여:
-        1. 인쇄물과 손글씨를 분리 (색상, 질감, 두께 분석)
-        2. 손글씨 영역을 배경색으로 채우기
-        3. 최종 이미지 저장
+        처리 방법:
+        1. Grayscale 변환 (연필은 흐려지고 인쇄 텍스트는 선명해짐)
+        2. Adaptive Threshold (인쇄 텍스트 → 검정, 연필 → 흰색으로 제거)
+        3. Noise Removal (작은 노이즈 제거)
+        4. 최종 이미지 저장
 
         Args:
             context: Pipeline 컨텍스트
@@ -42,12 +77,6 @@ class ExtractProblemStep(PipelineStep):
             preprocessed.get("processed_path", str(context.file_path))
         )
 
-        # 더미 구현: 원본 이미지를 복사하여 문제 이미지로 저장
-        # 실제 구현 시:
-        # 1. 인쇄물과 손글씨를 분리하여 레이어 생성
-        # 2. 손글씨 영역을 제거하고 인쇄물만 남김
-        # 3. 깨끗한 문제 이미지로 저장
-
         # 문제 이미지 저장을 위한 새 file_id 생성
         problem_file_id = str(uuid.uuid4())
 
@@ -60,9 +89,14 @@ class ExtractProblemStep(PipelineStep):
         stored_name = f"{problem_file_id}{ext}"
         problem_image_path = upload_dir / stored_name
 
-        # 더미: 원본 이미지를 복사 (실제로는 손글씨 제거 처리)
-        img = Image.open(processed_path)
-        img.save(problem_image_path)
+        # 이미지 로드 및 필기 제거 처리
+        original_img = Image.open(processed_path)
+
+        # 필기 제거 처리 (전략 패턴 사용)
+        cleaned_img = remove_handwriting_from_pil(original_img, self.remover)
+
+        # 처리된 이미지 저장
+        cleaned_img.save(problem_image_path)
 
         # 문제 이미지 URL 생성 (frontend에서 사용할 수 있도록)
         problem_image_url = f"/files/{problem_file_id}"  # noqa: E501
@@ -71,9 +105,9 @@ class ExtractProblemStep(PipelineStep):
             "problem_file_id": problem_file_id,
             "problem_image_path": str(problem_image_path),
             "problem_image_url": problem_image_url,
-            "handwriting_removed": True,  # 더미
-            "separation_method": "dummy",  # noqa: E501
-            "confidence": 0.0,  # 더미 구현이므로 0
+            "handwriting_removed": True,
+            "separation_method": self.remover.get_method_name(),
+            "confidence": self.remover.get_confidence(),
             "status": "completed",
         }
 
